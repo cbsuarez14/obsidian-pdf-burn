@@ -476,8 +476,13 @@ export class LabelModal extends Modal {
 		}
 
 		if (writetopdf) {
-			const originalFolderPath = this.selectedPDF.substring(0, this.selectedPDF.lastIndexOf("/"));
-			const newFilePath = `${originalFolderPath}/${newPDF}.pdf`;
+            // Arreglo temporal para que me funcione. No uso sub carpetas. El resultado
+            // aparece en el raiz del vault (o si el usuario especifica una carpeta, en esa carpeta)
+            //
+
+			// const originalFolderPath = this.selectedPDF.substring(0, this.selectedPDF.lastIndexOf("/"));
+			// const newFilePath = `${originalFolderPath}/${newPDF}.pdf`;
+            const newFilePath = `${newPDF}.pdf`;
 
 			await this.copyPDF(this.selectedPDF, newFilePath);
 			console.log("\n▶️ PINTANDO ANOTACIONES EN EL NUEVO PDF\n\n");
@@ -697,6 +702,136 @@ export class LabelModal extends Modal {
 	}
 	
 
+    /**
+     * Calculates the PDF bounding box [minX, minY, maxX, maxY] for a text item,
+     * applying its transformation matrix.
+     * Assumes item coordinates (width, height) and transform follow pdf.js conventions.
+     * IMPORTANT: Assumes PDF coordinate system (Y increases upwards).
+     *
+     * @param {object} item - The textContentItem.
+     * @param {number[]} item.transform - The 6-element PDF transform matrix [a, b, c, d, e, f].
+     * @param {number} item.width - The width of the item in its text space.
+     * @param {number} item.height - The height of the item in its text space.
+     * @returns {number[]} The calculated bounding box [minX, minY, maxX, maxY] in PDF page coordinates.
+     */
+    private calculateItemPdfBoundingBox(item: any): number [] {
+        const [a, b, c, d, e, f] = item.transform;
+        const width = item.width;
+        // Height might be negative in some PDF contexts, use absolute for calculation extent
+        const height = Math.abs(item.height); 
+
+        // Calculate coordinates of corners in page space by applying the transform matrix
+        // Origin (bottom-left in text space) -> (e, f) in page space
+        const x0 = e;
+        const y0 = f;
+
+        // Top-right corner in text space (width, height)
+        // Apply transform: x' = a*x + c*y + e, y' = b*x + d*y + f
+        const x1 = a * width + c * height + e;
+        const y1 = b * width + d * height + f;
+
+        // Bottom-right corner (width, 0)
+        const x2 = a * width + c * 0 + e;
+        const y2 = b * width + d * 0 + f;
+
+        // Top-left corner (0, height)
+        const x3 = a * 0 + c * height + e;
+        const y3 = b * 0 + d * height + f;
+
+        // Determine min/max coordinates for the bounding box in PDF page space
+        const minX = Math.min(x0, x1, x2, x3);
+        const minY = Math.min(y0, y1, y2, y3);
+        const maxX = Math.max(x0, x1, x2, x3);
+        const maxY = Math.max(y0, y1, y2, y3);
+
+        return [minX, minY, maxX, maxY];
+    }
+
+    /**
+     * Normalizes a textContentItem from pdf.js to ensure its `chars` array
+     * exists and has the same length as its `str` property.
+     * It handles two main cases:
+     * 1. Missing/empty `chars`: Creates artificial char entries using calculated geometry.
+     * 2. `str` longer than `chars` (e.g., ligatures): Expands `chars` using proportional
+     *    mapping heuristic, reusing geometry from the original `chars`.
+     *
+     * Returns a new, normalized item object, leaving the original unchanged.
+     *
+     * @param {object} item - The original textContentItem object.
+     * @param {string} item.str - The text string.
+     * @param {Array<object>?} item.chars - Optional array of character info objects.
+     * @param {number[]} item.transform - PDF transform matrix.
+     * @param {number} item.width - Item width.
+     * @param {number} item.height - Item height.
+     * @returns {object} A new, normalized textContentItem object.
+     */
+    private normalizeTextContentItem(item: any):object {
+        // Create a shallow copy to avoid modifying the original object
+        const newItem = { ...item };
+
+        const N = newItem.str?.length || 0; // Length of the string content
+
+        // --- Case 1: `chars` array is missing or empty ---
+        if (!newItem.chars || newItem.chars.length === 0) {
+            if (N > 0 && newItem.width > 0) { // Only create if there's text and width
+                // Calculate a single bounding box for the entire item
+                const artificialRect = this.calculateItemPdfBoundingBox(newItem);
+                newItem.chars = [];
+                for (let i = 0; i < N; i++) {
+                    const charStr = newItem.str[i];
+                    newItem.chars.push({
+                        c: charStr,
+                        u: charStr, // Use the char itself as unicode approximation
+                        r: artificialRect // Use the same bounding box for all chars in this item
+                    });
+                }
+            } else {
+                // If no string or no width, ensure chars is an empty array
+                newItem.chars = [];
+            }
+        }
+        // --- Case 2: `str` is longer than `chars` (e.g., ligatures) ---
+        else if (N > newItem.chars.length) {
+            const M = newItem.chars.length;
+            const originalChars = newItem.chars; // Reference original chars for geometry
+            const paddedChars = [];
+
+            for (let i = 0; i < N; i++) {
+                const charStr = newItem.str[i];
+                // Calculate the proportional index in the original chars array
+                let j = Math.floor(i * M / N);
+                // Ensure the index stays within bounds
+                j = Math.min(j, M - 1);
+
+                // Get the geometry from the corresponding original char
+                // Ensure originalChars[j] and its 'r' property exist
+                const geometry = originalChars[j]?.r || [0, 0, 0, 0]; // Fallback geometry
+
+                paddedChars.push({
+                    c: charStr,
+                    u: charStr, // Approximation
+                    r: geometry
+                });
+            }
+            newItem.chars = paddedChars; // Replace with the padded array
+        }
+        // --- Case 3: `str` is shorter than `chars` (N < M) ---
+        // This case is less common. We currently do *not* modify the item here,
+        // preserving the original `chars` but potentially leaving a length mismatch.
+        // Truncating `chars` might lose geometric info. Handling depends on specific needs.
+
+        // --- Case 0: Lengths already match (N === M) ---
+        // No changes needed in this case.
+
+        // Ensure newItem.chars exists, even if all checks failed (shouldn't happen often)
+        if (!newItem.chars) {
+            newItem.chars = [];
+        }
+
+        return newItem;
+    }
+
+
 
 
 	/**
@@ -783,8 +918,9 @@ export class LabelModal extends Modal {
 							console.warn(`⚠️ Items no válidos en indices x1: ${x1} o x2: ${x2}. Anotación omitida:`, annotation.context);
 							continue;
 						}
+                        const normalizedItems = textContent.items.map((item: any) => this.normalizeTextContentItem(item));
 						const rects = this.pdfplus.lib.highlight.geometry.computeMergedHighlightRects(
-							{ textContentItems: textContent.items, textDivs: [], div: null },
+							{ textContentItems: normalizedItems, textDivs: [], div: null },
 							x1, y1, x2, y2
 						);
 						
