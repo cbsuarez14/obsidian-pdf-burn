@@ -128,7 +128,7 @@ export class LabelModal extends Modal {
 		// Nombre del nuevo PDF
 		new Setting(contentEl)
 			.setName("Introduce el nombre del nuevo PDF")
-			.setDesc("Introduce el nombre del nuevo PDF que se generará al copiar el PDF seleccionado.")
+			.setDesc("Introduce el nombre del nuevo PDF que se generará al copiar el PDF seleccionado.\nSi no se indica ningún nombre tendrá el nombre 'testing.pdf'")
 			.addText((text) =>
 				text
 					.setPlaceholder("Nuevo PDF")
@@ -259,7 +259,7 @@ export class LabelModal extends Modal {
 
 		// Obtener solo el nombre del archivo PDF (sin la ruta)
 		const pdfName = pdfPath.split("/").pop(); // Extrae el nombre del archivo
-		console.log(`Buscando anotaciones para: ${pdfName}, con Display Format: ${displayFormat}`);
+		console.log(`Buscando anotaciones para: ${pdfName}`);
 
 		for (const file of files) {
 			// Si se especifica un archivo Markdown, saltar si no coincide con el archivo actual
@@ -444,7 +444,7 @@ export class LabelModal extends Modal {
 		
 		console.log("\n\n");
 		console.log("🟡 EMPIEZA UNA NUEVA BÚSQUEDA \n");
-		console.log(`Aplicando filtros para ${this.selectedPDF}, Exportar JSON: ${exportToJSON ? "Sí" : "No"}`);
+		console.log(`Aplicando filtros para ${this.selectedPDF}\n\n Exportar JSON: ${exportToJSON ? "Sí" : "No"}\n Mapear rectángulo: ${mapRectangles ? "Sí" : "No"}\n Escribir en PDF: ${writetopdf ? "Sí" : "No"}\n\n`);
 	
 		const startTime = performance.now(); // Iniciar medición de tiempo
 	
@@ -485,7 +485,7 @@ export class LabelModal extends Modal {
             const newFilePath = `${newPDF}.pdf`;
 
 			await this.copyPDF(this.selectedPDF, newFilePath);
-			console.log("▶️ writeToPDF activo: pintando anotaciones en el PDF");
+			console.log("\n▶️ PINTANDO ANOTACIONES EN EL NUEVO PDF\n\n");
 			await this.addAnnotationsToPdf(newFilePath, parsedAnnotations);
 			//console.log("✅ Pintado completado");
 		}
@@ -845,7 +845,7 @@ export class LabelModal extends Modal {
 	private async computeAnnotationRects(annotations: any[]): Promise<any[]> {
 		const result = [];
 	
-		console.log("🟡 Anotaciones recibidas para calcular rectángulos:", annotations);
+		//console.log("🟡 Anotaciones recibidas para calcular rectángulos:", annotations);
 	
 		const byPdfAndPage = new Map<string, Map<number, any[]>>();
 	
@@ -879,7 +879,7 @@ export class LabelModal extends Modal {
 			console.log(`📄 Procesando PDF: ${pdf}`);
 
 			const file = this.app.vault.getFiles().find(f => f.path === pdf);
-			console.log(`📂 Obteniendo archivo:`, file);
+			//console.log(`📂 Obteniendo archivo:`, file);
 	
 			if (!file) {
 				console.warn(`❌ Archivo PDF no encontrado en la Vault: ${pdf}`);
@@ -950,10 +950,10 @@ export class LabelModal extends Modal {
 	async addHighlightToPDFPage(page: any, annotation: any): Promise<string> {
 		
 		const pdflib = this.pdfplus.lib;
-		console.log("🔍 pdflib disponible:", this.pdfplus.lib);
+		//console.log("🔍 pdflib disponible:", this.pdfplus.lib);
 
 		const { r, g, b } = this.pdfplus.domManager.getRgb(annotation.color);
-		console.log("🟡 Color RGB:", { r, g, b });
+		//console.log("🎨 Color RGB:", { r, g, b });
 
 		const geometry = this.pdfplus.lib.highlight.geometry;
 		const subtype = "Highlight";
@@ -966,11 +966,31 @@ export class LabelModal extends Modal {
 			title = `${this.pdfplus.settings.author} - ${annotation.title}`;
 			timestamp = ""; // como en tu lógica original
 		}
+
+		// Detectar que tipo de coordenadas hay que utilizar
+		let coords: number[][] = [];
+
+		if (annotation.coordsSelection && annotation.coordsSelection.length > 0) { 
+			console.log("🟨 Usando coordenadas de selección:", annotation.coordsSelection);
+			if (Array.isArray(annotation.coordsSelection[0])) {
+				coords = annotation.coordsSelection; // Es un array de arrays
+			} else {
+				coords = [annotation.coordsSelection]; // Solo un rect
+			}
+		} else if (annotation.coordsRectangles && annotation.coordsRectangles.length > 0) {
+			console.log("🟦 Usando coordenadas de rectángulo:", annotation.coordsRectangles);
+			coords = [annotation.coordsRectangles]; // Siempre lo tratamos como array de arrays
+		} else {
+			console.warn("❌ Coordenadas inválidas para la anotación:", annotation);
+			return "";
+		}
+		
+
 		
 		const ref = this.pdfplus.lib.highlight.writeFile.pdflib.addAnnotation(page, {
 			Subtype: subtype,
-			Rect: geometry.mergeRectangles(...annotation.coordsSelection),
-			QuadPoints: geometry.rectsToQuadPoints(annotation.coordsSelection),
+			Rect: geometry.mergeRectangles(coords),
+			QuadPoints: geometry.rectsToQuadPoints(coords),
 			Contents: contents ?? '',  // ← ya no usamos fromText
 			M: timestamp,
 			T: title,
@@ -1005,7 +1025,7 @@ export class LabelModal extends Modal {
 	
 		// 2) Cargar el documento con PDF-Lib para modificarlo
 		const pdfDoc = await this.pdfplus.lib.loadPdfLibDocument(file);
-		console.log("📦 Documento PDF-Lib cargado");
+		//console.log("📦 Documento PDF-Lib cargado");
 	
 		// 3) Agrupar anotaciones por número de página
 		const annByPage = annotations.reduce((map, ann) => {
@@ -1014,7 +1034,7 @@ export class LabelModal extends Modal {
 		map.get(pageNum)!.push(ann);
 		return map;
 		}, new Map<number, any[]>());
-		console.log("🗂️ Anotaciones agrupadas por página:", annByPage);
+		//console.log("🗂️ Anotaciones agrupadas por página:", annByPage);
 	
 		// 4) Recorrer cada página y añadir los highlights
 		for (const [pageNum, anns] of annByPage.entries()) {
