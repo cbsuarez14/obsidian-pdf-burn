@@ -29,15 +29,37 @@ export interface Settings {
     copyFormat: string;
     displayFormat: string;
     exportToJSON: boolean;
+    newPDFName: string;
     mapRectangles: boolean;
     writeToPDF: boolean;
+    opacity: number;
+    author: string;
 }
 
-const DEFAULT_SETTINGS: Settings = {
+export const DEFAULT_SETTINGS: Settings = {
     filterColor: "",
     copyFormat: "",
     displayFormat: "",
     exportToJSON: false,
+    newPDFName: "testing",
     mapRectangles: false,
-    writeToPDF: false
+    writeToPDF: false,
+    opacity: 1.0,
+    author: ""
+}
+
+export interface Annotation {
+    raw: string;
+    context: string;
+    link: string;
+    pdfname: string;
+    page: number;
+    color: string;
+    tags: string[];
+    coordsSelection: number[] | number[][];
+    coordsRectangles: number[];
+    source: string;
+    displayFormat: string;
+    linkFormat: string;
+    title: string;
 }

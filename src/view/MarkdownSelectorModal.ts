@@ -15,15 +15,14 @@ export class MarkdownSelectorModal extends Modal {
         const {contentEl} = this;
 
         contentEl.empty();
-        contentEl.createEl("h2", {text: "Seleccione un archivo Markdown de la Vault"});
+        contentEl.createEl("h2", {text: "Seleccione uno o varios archivos Markdown de la Vault"});
 
 
         // Obtenemos todos los archivos de la Vault
-        const files = this.app.vault.getFiles();
+        const files = this.app.vault.getMarkdownFiles();
 
         // Filtramos solo los archivos Markdown y los mostramos en una lista
         files
-            .filter((file) => file.extension === "md")
             .forEach((file) => {
                 new Setting(contentEl)
                     .setName(file.basename)

@@ -3,6 +3,8 @@ import { Modal, App, Setting, Notice } from "obsidian";
 import { PDFSelectorModal } from "./PDFSelectorModal"; // Adjust the path as necessary
 import { MarkdownSelectorModal } from "./MarkdownSelectorModal"; 
 import { filterCOLOR, copyFORMATS, displayFORMATS } from "./viewData"; // Importa las opciones de filtro de color y tipo de copiado
+import { PostFilterOptionsModal } from "./FilteredOptionsModal";
+
 
 export class LabelModal extends Modal {
 
@@ -12,6 +14,8 @@ export class LabelModal extends Modal {
 	newPDFName: string; // por defecto "testing"
 	tagValue: string;
 	markdownFile: string;
+
+	parsedAnnotations: any[] = [];	
 
 	constructor(app: App, plugin: any, pdfplus: any) {
 		super(app);
@@ -125,62 +129,6 @@ export class LabelModal extends Modal {
 					})
 			);
 
-		// Nombre del nuevo PDF
-		new Setting(contentEl)
-			.setName("Introduce el nombre del nuevo PDF")
-			.setDesc("Introduce el nombre del nuevo PDF que se generará al copiar el PDF seleccionado.\nSi no se indica ningún nombre tendrá el nombre 'testing.pdf'")
-			.addText((text) =>
-				text
-					.setPlaceholder("Nuevo PDF")
-					.onChange((value) => {
-						this.newPDFName = value;
-					})
-			);
-
-
-		contentEl.createEl("p", { text: "Opciones adicionales" });
-	
-		
-		// Opción para exportar las anotaciones encontradas a un archivo JSON
-		new Setting(contentEl)
-			.setName("Exportar a JSON")
-			.setDesc("Exporta las anotaciones encontradas a un archivo JSON.")
-			.addToggle((toggle) =>
-				toggle
-					.setValue(this.plugin.settings.exportToJSON)
-					.onChange((value) => {
-						this.plugin.settings.exportToJSON = value;
-						this.plugin.saveData(this.plugin.settings);
-					})
-			);
-		
-		// Opción para mapear el rectángulo de selección
-		new Setting(contentEl)
-			.setName("Mapear rectángulo de selección")
-			.setDesc("Mapea el rectángulo de selección en el PDF.")
-			.addToggle((toggle) =>
-				toggle
-					.setValue(this.plugin.settings.mapRectangles)
-					.onChange((value) => {
-						this.plugin.settings.mapRectangles = value;
-						this.plugin.saveData(this.plugin.settings);
-					})
-			);
-			
-
-		// Opción para mostrar el rectángulo de selección en el PDF
-		new Setting(contentEl)
-			.setName("Escribir el rectángulo de selección en el PDF")
-			.setDesc("Muestra las anotaciones en el PDF mediante rectángulos.")
-			.addToggle((toggle) =>
-				toggle
-					.setValue(this.plugin.settings.writeToPDF)
-					.onChange((value) => {
-						this.plugin.settings.writeToPDF = value;
-						this.plugin.saveData(this.plugin.settings);
-					})
-			);
-
 			
 		// Botón para aplicar los filtros
 		new Setting(contentEl)
@@ -195,54 +143,6 @@ export class LabelModal extends Modal {
 			);
 		
 	}
-
-
-	
-
-	/**	
-	 * Encuentra todas las anotaciones PDF++ en un archivo PDF
-	*/ 
-	// async findPDFAnnotations(pdfPath: string, color?: string, tag?:string, markdownFile?: string): Promise<string[]> {
-
-	// 	// Obtener todos los archivos Markdown de la Vault
-	// 	const files = this.app.vault.getMarkdownFiles();
-
-	// 	// Variable para almacenar las anotaciones encontradas
-	// 	const annotations: string[] = [];
-
-	// 	// Obtener solo el nombre del archivo PDF (sin la ruta)
-	// 	const pdfName = pdfPath.split("/").pop(); // Extrae el nombre del archivo
-	// 	console.log(`Buscando anotaciones para: ${pdfName}`); // Depuración
-	
-	// 	for (const file of files) {
-	// 		// Si se especifica un archivo Markdown, saltar si no coincide con el archivo actual
-	// 		if(markdownFile && file.basename !== markdownFile) continue;
-
-	// 		// Leer el contenido del archivo
-	// 		const content = await this.app.vault.read(file);
-	
-	// 		console.log(`Leyendo archivo: ${file.path}`); // Depuración
-	
-	// 		// Expresión regular para buscar anotaciones PDF++ en caso de que haya color o no
-	// 		const matches = color 
-	// 			? content.match(new RegExp(`\\[!PDF\\|${color}\\]\\s*\\[\\[${pdfName}#.*?\\]\\]`, "gi"))
-	// 			: content.match(new RegExp(`\\[!PDF\\|.*?\\]\\s*\\[\\[${pdfName}#.*?\\]\\]`, "g"));
-	
-	// 		if (matches) {
-	// 			matches.forEach((match) => {
-	// 				// Si se especifica un tag, verificar que el contenido de la nota lo contenga
-	// 				if (tag && !content.includes(tag)) {
-	// 					return; // Saltar si el tag no está presente
-	// 				}
-	
-	// 				annotations.push(match); // Agregar anotación si cumple con los filtros
-	// 			});
-	// 		}
-	// 	}
-	
-	// 	console.log(`Anotaciones encontradas:`, annotations); // Depuración
-	// 	return annotations;
-	// }
 	
 
 	/**
@@ -271,22 +171,23 @@ export class LabelModal extends Modal {
 
 			// Expresión regular para capturar anotaciones PDF++ con texto después del "|"
 			const regexPattern = `\\[!PDF\\|.*?\\]\\s*\\[\\[${pdfName}#.*?(?:\\|(.*?))?\\]\\]`; // captura solo Callout & Quote in callout
-			const regexPattern2 = `(?:\\[!PDF\\|.*?\\])?\\s*\\[\\[${pdfName}#.*?(?:\\|(.*?))?\\]\\]`;
+			const regexPattern2 = `(?:!|\\()?(?:\\[!PDF\\|.*?\\])?\\s*\\[\\[${pdfName}#.*?(?:\\|(.*?))?\\]\\](?:\\))?`;
 			const regexPattern3 = `(?:\\)?\\s*\\[\\[${pdfName}#.*?(?:\\|(.*?))?\\]\\]`;
 
 			const matches = content.matchAll(new RegExp(regexPattern2, "gi"));	
 
 			for (const match of matches) {
 				
-				const annotation = match[1]? match[1].trim() : ""; // Extrae el texto después del '|' si existe match[1], si no "".
+				const context = await this.getBacklinkContext(file.path, match[0]); // Obtener el contexto de la anotación
+				const annotation = match[0]; // Extrae el texto después del '|' si existe match[1], si no "".
 		
 				const detectedDisplayFormat = this.detectDisplayFormat(annotation); // Detectar DisplayFormat
-				const detectedLinkFormat = this.detectLinkFormat(match[0], content); // Detectar LinkFormat
+				const detectedLinkFormat = this.detectLinkFormat(annotation, context); // Detectar LinkFormat
 				
 				//console.log("Detectedlinkformat: ", detectedLinkFormat )
-				//console.log(`Anotación detectada: ${match} \n Formato detectado: ${detectedDisplayFormat} || ${detectedLinkFormat}`);
+				console.log(`Anotación detectada: ${annotation} \nFormato detectado: ${detectedDisplayFormat} || ${detectedLinkFormat}`);
 			
-				const context = await this.getBacklinkContext(file.path, match[0]); // Obtener el contexto de la anotación
+				
 				//console.log("🧩 Contexto de la anotación:", context);
 
 				// Aplicar filtro de display format (si está seleccionado)
@@ -294,9 +195,9 @@ export class LabelModal extends Modal {
 					continue; // Saltar si el formato no coincide
 				}
 
-				// if(linkFormat && linkFormat !== detectedLinkFormat) {
-				// 	continue; // Saltar si el formato de link no coincide
-				// }
+				if(linkFormat && linkFormat !== detectedLinkFormat) {
+					continue; // Saltar si el formato de link no coincide
+				}
 				
 				// Si se especifica un tag, verificar que el contenido de la nota lo contenga
 				if (tag && !context.includes(tag)) {
@@ -308,8 +209,12 @@ export class LabelModal extends Modal {
 				if (color && !match[0].includes(`|${color}]`)) {
 					continue; // Saltar si el color no coincide
 				}
-			
-				annotations.push({ raw: match[0], context }); // Agregar anotación si cumple con los filtros
+				
+
+				const fullRaw = content.substring(match.index, match.index + match[0].length);
+				annotations.push({ raw: fullRaw, context });
+				
+
 			}
 			
 		}
@@ -317,55 +222,6 @@ export class LabelModal extends Modal {
 		console.log(`Anotaciones encontradas:`, annotations);
 		return annotations;
 }
-
-
-	/**
-	 * Funcion que exporta las anotaciones encontradas a un archivo JSON
-	 */
-	// async exportToJSON(pdfPath: string, annotations: string[]) {
-	// 	const fs = require("fs");
-	// 	const path = require("path");
-	
-	// 	const folderPath = pdfPath.substring(0, pdfPath.lastIndexOf("/"));
-	// 	const pdfName = pdfPath.split("/").pop()?.replace(".pdf", "");
-	
-	// 	if (!pdfName) {
-	// 		new Notice("Error al obtener el nombre del PDF.");
-	// 		return;
-	// 	}
-	
-	// 	// Definir la ruta del archivo JSON
-	// 	const jsonFilePath = path.join((this.app.vault.adapter as any).basePath, folderPath, `${pdfName}_annotations.json`);
-	
-	// 	const processedAnnotations = annotations.map((annotation) => {
-	// 		const colorMatch = annotation.match(/\[!PDF\|(\w+)\]/);
-	// 		const linkMatch = annotation.match(/\[\[(.*?\.pdf#page=\d+.*?)\|/);
-	// 		const pageMatch = annotation.match(/#page=(\d+)/);
-	// 		const selection = this.getSelectionCoordinates(annotation);
-	// 		const textMatch = annotation.match(/\[\[(?:.*?#page=\d+.*?)\|(.*?)\]\]/);
-	// 		const contextMatch = annotation.match(/(> .*)/);
-			
-	// 		return {
-	// 			color: colorMatch ? colorMatch[1] : "unknown",
-	// 			page: pageMatch ? parseInt(pageMatch[1], 10) : null,
-	// 			text: textMatch ? textMatch[1] : "",
-	// 			selecion: selection ? selection : null,
-	// 			link: linkMatch ? linkMatch[1] : "",
-	// 			context: contextMatch ? contextMatch[1] : annotation,
-	// 			source: pdfPath // La ruta del PDF como referencia
-	// 		};
-	// 	});
-	
-	// 	const jsonData = JSON.stringify(processedAnnotations, null, 4);
-	
-	// 	try {
-	// 		fs.writeFileSync(jsonFilePath, jsonData);
-	// 		new Notice(`JSON exportado con éxito: ${jsonFilePath}`);
-	// 	} catch (error) {
-	// 		console.error("Error al exportar a JSON:", error);
-	// 		new Notice("Error al exportar a JSON.");
-	// 	}
-	// }
 
 
 	async exportParsedAnnotationsToJSON(pdfPath: string, parsedAnnotations: any[]) {
@@ -429,13 +285,11 @@ export class LabelModal extends Modal {
 	 * Método para aplicar los filtros
 	 */
 	async applyFilters() {
-		
+
 		const color = this.plugin.settings.filterColor;
-		const exportToJSON = this.plugin.settings.exportToJSON;
-		const mapRectangles = this.plugin.settings.mapRectangles;
 		const displayFormat = this.plugin.settings.displayFormat;
-		const writetopdf = this.plugin.settings.writeToPDF;
-		const newPDF = this.newPDFName || "testing";
+		const linkFormat = this.plugin.settings.copyFormat;
+
 	
 		if (!this.selectedPDF) {
 			new Notice("Seleccione un archivo PDF antes de aplicar los filtros.");
@@ -444,54 +298,74 @@ export class LabelModal extends Modal {
 		
 		console.log("\n\n");
 		console.log("🟡 EMPIEZA UNA NUEVA BÚSQUEDA \n");
-		console.log(`Aplicando filtros para ${this.selectedPDF}\n\n Exportar JSON: ${exportToJSON ? "Sí" : "No"}\n Mapear rectángulo: ${mapRectangles ? "Sí" : "No"}\n Escribir en PDF: ${writetopdf ? "Sí" : "No"}\n\n`);
+		//console.log(`Aplicando filtros para ${this.selectedPDF}\n\n Exportar JSON: ${exportToJSON ? "Sí" : "No"}\n Mapear rectángulo: ${mapRectangles ? "Sí" : "No"}\n Escribir en PDF: ${writetopdf ? "Sí" : "No"}\n\n`);
 	
+
+	
+
+		const annotations = await this.findPDFAnnotations(this.selectedPDF, color, this.tagValue, this.markdownFile, displayFormat, linkFormat);
+		this.parsedAnnotations = this.parseAnnotations(annotations);
+		this.showAnnotations(this.contentEl, annotations.map(a => a.raw));
+
+
+		// Crear botón Exportar justo después del contenedor de anotaciones
+		const exportBtn = this.contentEl.createEl("button", {
+			text: "Exportar",
+			cls: "mod-cta export-button"
+		});
+		exportBtn.style.marginTop = "1em";
+
+		exportBtn.onclick = () => {
+			new PostFilterOptionsModal(this.app, this.plugin, async () => {
+				await this.runPostFilterActions(this.parsedAnnotations);
+			}).open();
+		};
+
+		// Añadir justo debajo del contenedor .annotations-container
+		const annotationsContainer = this.contentEl.querySelector(".annotations-container");
+		if (annotationsContainer) {
+			annotationsContainer.insertAdjacentElement("afterend", exportBtn);
+			console.log("✅ Botón 'Exportar' insertado después del contenedor de anotaciones");
+		} else {
+			this.contentEl.appendChild(exportBtn);
+			console.warn("⚠️ No se encontró '.annotations-container'. Botón añadido al final del contentEl");
+		}
+
+
+
+	}
+	
+	private async runPostFilterActions(parsedAnnotations: any[]) {
+		const exportToJSON = this.plugin.settings.exportToJSON;
+		const mapRectangles = this.plugin.settings.mapRectangles;
+		const writetopdf = this.plugin.settings.writeToPDF;
+		const newPDF = this.plugin.settings.newPDFName;
+
 		const startTime = performance.now(); // Iniciar medición de tiempo
 	
 		// Mensaje en la interfaz indicando que se está generando el JSON
 		const statusMessage = this.contentEl.createEl("p", { text: "Generando JSON...", cls: "json-status" });
-	
-
-		const annotations = await this.findPDFAnnotations(this.selectedPDF, color, this.tagValue, this.markdownFile, displayFormat);
-		const parsedAnnotations = this.parseAnnotations(annotations);
-		this.showAnnotations(this.contentEl, annotations.map(a => a.raw));
-
-		
-
 
 		if (mapRectangles) {
 			parsedAnnotations.forEach(ann => ann.source = this.selectedPDF);
-			const enriched = await this.computeAnnotationRects(parsedAnnotations);
-			console.log("✅ Rectángulos de selección:", enriched);
+			await this.computeAnnotationRects(parsedAnnotations);
 		}
-		
+
 		if (exportToJSON) {
 			await this.exportParsedAnnotationsToJSON(this.selectedPDF, parsedAnnotations);
 			const endTime = performance.now();
 			const elapsedTime = (endTime - startTime).toFixed(2);
 			statusMessage.textContent = `JSON generado en ${elapsedTime} ms`;
 			console.log(`JSON exportado en ${elapsedTime} ms`);
-		} else {
-			statusMessage.remove();
 		}
 
 		if (writetopdf) {
-            // Arreglo temporal para que me funcione. No uso sub carpetas. El resultado
-            // aparece en el raiz del vault (o si el usuario especifica una carpeta, en esa carpeta)
-            //
-
-			// const originalFolderPath = this.selectedPDF.substring(0, this.selectedPDF.lastIndexOf("/"));
-			// const newFilePath = `${originalFolderPath}/${newPDF}.pdf`;
-            const newFilePath = `${newPDF}.pdf`;
-
+			const newFilePath = `${newPDF}.pdf`;
 			await this.copyPDF(this.selectedPDF, newFilePath);
-			console.log("\n▶️ PINTANDO ANOTACIONES EN EL NUEVO PDF\n\n");
 			await this.addAnnotationsToPdf(newFilePath, parsedAnnotations);
-			//console.log("✅ Pintado completado");
 		}
-
 	}
-	
+
 
 	/**
 	 * Método que, dado un PDF, genera una copia de ese PDF
@@ -567,47 +441,48 @@ export class LabelModal extends Modal {
 	 */
 	detectDisplayFormat(annotation: string): string {
 
-		const trimmedAnnotation = annotation.trim();
-
-		if(trimmedAnnotation.match(/^.+, p\.\d+$/))
+		const match = annotation.match(/\[\[.*?\|(.*?)\]\]/);
+		const visibleText = match ? match[1].trim() : "";
+	
+		if (visibleText.match(/^.+, p\.\d+$/))
 			return "Title & Page";
-		else if(trimmedAnnotation.match(/^p\.\d+$/))
+		else if (visibleText.match(/^p\.\d+$/))
 			return "Page";
-		else if(trimmedAnnotation.match(/^[\p{Extended_Pictographic}\s]+$/u)) // Reconoce todos los Emoji
+		else if (visibleText.match(/^[\p{Extended_Pictographic}\s]+$/u)) // Emoji
 			return "Emoji";
-		else if(trimmedAnnotation === "")
+		else if (visibleText === "")
 			return "None";
 		else
 			return "Text";
 	}
+	
 
-	detectLinkFormat(annotation: string, content: string): string {
-
-		if(annotation.startsWith("[[") && annotation.endsWith("]]")) {
-			return "Link";
-		}
-
-		if(annotation.startsWith("![[") && annotation.endsWith("]]")) {
+	detectLinkFormat(annotation: string, context?: string): string {
+		// Elimina espacios y saltos de línea por si acaso
+		const clean = annotation.trim();
+	
+		if (clean.startsWith("![[") && clean.endsWith("]]")) {
 			return "Embed";
 		}
-
-		if(annotation.startsWith("([[") && annotation.endsWith("]])")) {
+	
+		if (clean.startsWith("([[") && clean.endsWith("]])")) {
 			return "Quote";
 		}
-
-		// Verificar si la anotación es un Callout o Quote in Callout
-		const annotationIndex = content.indexOf(annotation);
-		if (annotationIndex !== -1) {
-			const nextLine = content.substring(annotationIndex + annotation.length).trim().split("\n")[0];
-			
-			if (nextLine.startsWith(">")) {
-				return "Quote in callout";  // Tiene comentario después
-			}
-			return "Callout";  // No tiene comentario después
+	
+		if (clean.startsWith("[[") && clean.endsWith("]]")) {
+			return "Link";
 		}
 	
-		return "Unknown"; // Si no encaja con ningún formato
+		if (clean.includes("[!PDF|")) {
+			if (context && context.includes("> >")) {
+				return "Quote in callout"; // contenido tipo callout con comentario
+			}
+			return "Callout";
+		}
+	
+		return "Unknown";
 	}
+	
 
 
 	private parseAnnotations(rawAnnotations : { raw: string, context: string}[]): any[] {
@@ -673,11 +548,7 @@ export class LabelModal extends Modal {
 				// Extraer tags del contexto (excepto #page)
 				const tags = (context.match(/#[a-zA-Z0-9-_]+/g) || []).filter(tag => tag !== "#page");
 
-				// const rect = rectMatch[1].split(",").map(Number);
-				// if (selection.length !== 4 || selection.some(isNaN)) {
-				// 	console.warn("❌ Coordenadas de rect inválidas:", rectMatch[1], "en anotación:", annotation);
-				// 	continue;
-				// }
+				const userComment = this.extractUserComment(context, annotation);
 				
 	
 				parsed.push({
@@ -687,10 +558,10 @@ export class LabelModal extends Modal {
 					pdfname,
 					page,
 					color,
-					
 					tags,
 					coordsSelection,
-					coordsRectangles
+					coordsRectangles,
+					userComment
 				});
 			} catch (error) {
 				console.error("❌ Error al parsear anotación:", annotation, error);
@@ -949,26 +820,21 @@ export class LabelModal extends Modal {
 	 */
 	async addHighlightToPDFPage(page: any, annotation: any): Promise<string> {
 		
-		const pdflib = this.pdfplus.lib;
-		//console.log("🔍 pdflib disponible:", this.pdfplus.lib);
+		const pdflib = (window as any).pdflib;
 
 		const { r, g, b } = this.pdfplus.domManager.getRgb(annotation.color);
-		//console.log("🎨 Color RGB:", { r, g, b });
-
-		const geometry = this.pdfplus.lib.highlight.geometry;
-		const subtype = "Highlight";
-		const contents = annotation.context;
-
-		let title = this.pdfplus.settings.author;
-		let timestamp = new Date().toISOString(); // o null si prefieres no incluirlo
 		
-		if (annotation.title) {
-			title = `${this.pdfplus.settings.author} - ${annotation.title}`;
-			timestamp = ""; // como en tu lógica original
-		}
+		const geometry = this.pdfplus.lib.highlight.geometry;
+		const subtype = "Highlight"; // Highlight, Underline, StrikeOut, Squiggly, etc.
+		const contents = annotation.userComment || "";
 
-		// Detectar que tipo de coordenadas hay que utilizar
+		const author = pdflib.PDFHexString.fromText(this.plugin.settings.author);
+
+		const timestamp = pdflib.PDFString.fromDate(new Date());
+
+		// Detectar que tipo de coordenadas hay que utilizar y tipo de pintado
 		let coords: number[][] = [];
+		
 
 		if (annotation.coordsSelection && annotation.coordsSelection.length > 0) { 
 			console.log("🟨 Usando coordenadas de selección:", annotation.coordsSelection);
@@ -985,16 +851,14 @@ export class LabelModal extends Modal {
 			return "";
 		}
 		
-
-		
 		const ref = this.pdfplus.lib.highlight.writeFile.pdflib.addAnnotation(page, {
 			Subtype: subtype,
 			Rect: geometry.mergeRectangles(coords),
 			QuadPoints: geometry.rectsToQuadPoints(coords),
-			Contents: contents ?? '',  // ← ya no usamos fromText
+			Contents: pdflib.PDFHexString.fromText(contents),
 			M: timestamp,
-			T: title,
-			CA: subtype === 'Highlight' ? this.pdfplus.settings.writeHighlightToFileOpacity : 1.0,
+			T: author,
+			CA: subtype === 'Highlight' ? this.plugin.settings.opacity : 1.0,
 			Border: subtype === 'Highlight' ? [0, 0, 0] : undefined,
 			C: [r / 255, g / 255, b / 255],
 		});
@@ -1003,9 +867,12 @@ export class LabelModal extends Modal {
 			ref.objectNumber,
 			ref.generationNumber
 		);
+
+		console.log("🟢 Anotación añadida con ID:", annotationID);
 		return annotationID;
 		
 	}
+
 
 	/**
 	 * Integra en view.ts la lógica de addAnnotationsToPdf de utils.js,
@@ -1052,34 +919,45 @@ export class LabelModal extends Modal {
 		console.log("✅ PDF guardado con anotaciones en:", pdfPath);
 	}
 
-	// async readSource(sourcePath: string) {
-	// 	const sourceFile = this.app.vault.getAbstractFileByPath(sourcePath);
-	// 	const contents = await this.app.vault.cachedRead(sourceFile);
-	// 	return contents.split("\n");
-	// }
 
-	// // Función que, dado un backlink y la fuente en la que aparece, extrae
-	// // el párrafo completo donde aparece el enlace, o incluso las líneas
-	// // siguientes si se trata del formato callout
-	// getBacklinkContext(sourcePath: string, linkInfo: string) {
-	// 	const startLine = linkInfo.position.start.line;
-	// 	const endLine = linkInfo.position.end.line;
-	// 	const lines = await readSource(sourcePath);
-	// 	const context = lines.slice(startLine, endLine+1)
-	// 	// Si la primera línea del contexto, eliminados los espacios iniciales,
-	// 	// comienza por "> " hay que extraer todo el bloque ">"
-	// 	if (context[0].trim().startsWith(">")) {
-	// 		let i = startLine+1;
-	// 		// En este caso hay que expandir el contexto con todas las líneas que
-	// 		// le sigan y comiencen por ">" y tengan la misma indentación
-	// 		while (i < lines.length && lines[i].startsWith('>')) {
-	// 			context.push(lines[i]);
-	// 			i++;
-	// 		}
-	// 	}
-	// 	return context.join("\n");
-	// }
-  
+	private extractUserComment(context: string, annotation: string): string {
+		const lines = context.split("\n");
+
+		const startIndex = lines.findIndex(line => line.includes(annotation));
+		if (startIndex === -1) return "";
+
+		const userLines: string[] = [];
+
+		// 1. Línea del enlace
+		const annotationLine = lines[startIndex].trim();
+
+		// a) Eliminar todo tipo de anotaciones: [[...]], ![[...]], [!PDF|...] [[...]]
+		let cleaned = annotationLine
+			.replace(/\[!PDF\|.*?\]/g, "") // callouts
+			.replace(/!?(\[\[.*?\]\])/g, "") // enlaces [[...]] y ![[...]]
+			.replace(/^\(*\s*/, "").replace(/\)*\s*$/, "") // paréntesis
+			.replace(/^[-*]\s+/, "") // lista
+			.replace(/^>\s*/, "") // símbolo de callout
+			.trim();
+
+		if (cleaned.length > 0) userLines.push(cleaned);
+
+		// 2. Capturar líneas siguientes tipo "> Comentario", evitando "> >"
+		for (let i = startIndex + 1; i < lines.length; i++) {
+			const line = lines[i].trim();
+
+			if (line.startsWith("> >")) continue; // contenido del PDF
+			if (line.startsWith(">")) {
+				userLines.push(line.replace(/^>\s*/, "").trim());
+			} else {
+				break;
+			}
+		}
+
+		return userLines.join("\n").trim();
+	}
+
+
 
 
 	onClose() {

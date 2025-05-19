@@ -5,17 +5,21 @@ import
     PluginSettingTab
 } from "obsidian";
 
-// Interfaz para definir los ajustes del plugin
-export interface ExamplePluginSettings {
-    optionEnabled: boolean;
-    customMessage: string;
-}
+import { Settings } from "../view/viewData";
 
-// Configuración por defecto
-export const DEFAULT_SETTINGS: ExamplePluginSettings = {
-    optionEnabled: false,
-    customMessage: "Hello, Obsidian!",
-};
+// Interfaz para definir los ajustes del plugin
+// export interface ExamplePluginSettings {
+//     optionEnabled: boolean;
+//     customMessage: string;
+//     opacity: number
+// }
+
+// // Configuración por defecto
+// export const DEFAULT_SETTINGS: ExamplePluginSettings = {
+//     optionEnabled: false,
+//     customMessage: "Hello, Obsidian!",
+//     opacity: 1.0
+// };
 
 export class ExampleSettingsTab extends PluginSettingTab
 {
@@ -36,6 +40,34 @@ export class ExampleSettingsTab extends PluginSettingTab
         // Titulo del panel de ajustes
         containerEl.createEl("h1", { text: "Welcome to ExamplePlugin!"})
         containerEl.createEl("p", { text: "Created by Carlos Bravo Suárez."})
+
+        new Setting(this.containerEl)
+            .setName("Opacidad del resaltado")
+            .setDesc("Entre 0 (transparente) y 1 (opaco)")
+            .addSlider(slider =>
+                slider
+                    .setLimits(0, 1, 0.05)
+                    .setValue(this.plugin.settings.opacity)
+                    .setDynamicTooltip()
+                    .onChange(async (value) => {
+                        this.plugin.settings.opacity = value;
+                        await this.plugin.saveSettings();
+                    })
+        );
+
+        // Nombre del autor
+        new Setting(this.containerEl)
+            .setName("Autor")
+            .setDesc("Introduce el nombre del autor")
+            .addText(text => text
+                .setValue("")
+                .onChange(async (value) => {
+                    this.plugin.settings.author = value;
+                    await this.plugin.saveSettings();
+                })
+        );
+
+
 
     }
 }
