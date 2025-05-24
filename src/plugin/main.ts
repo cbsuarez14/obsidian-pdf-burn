@@ -28,6 +28,11 @@ export default class ExamplePlugin extends Plugin {
 		});
 	}
 	
+	// Método para guardar ajustes
+	async saveSettings() {
+		await this.saveData(this.settings);
+	}
+
 	// Metodo para cargar los ajustes
 	async loadSettings() {
 		// Ignorar ajustes guardados → siempre usar los valores por defecto

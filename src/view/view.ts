@@ -4,6 +4,7 @@ import { PDFSelectorModal } from "./PDFSelectorModal"; // Adjust the path as nec
 import { MarkdownSelectorModal } from "./MarkdownSelectorModal"; 
 import { filterCOLOR, copyFORMATS, displayFORMATS } from "./viewData"; // Importa las opciones de filtro de color y tipo de copiado
 import { PostFilterOptionsModal } from "./FilteredOptionsModal";
+import * as exp from "constants";
 
 
 export class LabelModal extends Modal {
@@ -11,7 +12,6 @@ export class LabelModal extends Modal {
 	plugin: any
 	pdfplus: any;
 	selectedPDF: string;
-	newPDFName: string; // por defecto "testing"
 	tagValue: string;
 	markdownFile: string;
 
@@ -268,13 +268,21 @@ export class LabelModal extends Modal {
 		// Crear un contenedor para las anotaciones
 		const annotationsContainer = contentEl.createEl("div", { cls: "annotations-container" });
 
-		if (annotations.length > 0) {
+		if (annotations.length > 1) {
 			annotationsContainer.createEl("h4", { text: "Se han encontrado" + ` ${annotations.length} ` + "anotaciones:" });
 			annotations.forEach((annotation) => {
 				annotationsContainer.createEl("p", { text: annotation });
 			});
 		} else {
-			annotationsContainer.createEl("p", { text: "No se han encontrado anotaciones para los filtros seleccionados." });
+			if(annotations.length === 1) {
+				annotationsContainer.createEl("h4", { text: "Se ha encontrado" + ` ${annotations.length} ` + "anotación:" });
+				annotations.forEach((annotation) => {
+					annotationsContainer.createEl("p", { text: annotation });
+				});
+			}
+			else {
+				annotationsContainer.createEl("h4", { text: "No se han encontrado anotaciones para los filtros seleccionados." });
+			}
 		}
 
 		contentEl.appendChild(annotationsContainer);
@@ -305,15 +313,21 @@ export class LabelModal extends Modal {
 
 		const annotations = await this.findPDFAnnotations(this.selectedPDF, color, this.tagValue, this.markdownFile, displayFormat, linkFormat);
 		this.parsedAnnotations = this.parseAnnotations(annotations);
-		this.showAnnotations(this.contentEl, annotations.map(a => a.raw));
+		this.showAnnotations(this.contentEl, this.parsedAnnotations.map(a => a.original));
 
 
-		// Crear botón Exportar justo después del contenedor de anotaciones
-		const exportBtn = this.contentEl.createEl("button", {
+		// Eliminar contenedor de exportación anterior si existe
+		const prevExportContainer = this.contentEl.querySelector(".export-button-container");
+		if (prevExportContainer) {
+			prevExportContainer.remove();
+		}
+
+		// Crear contenedor para el botón alineado a la derecha
+		const exportContainer = this.contentEl.createEl("div", { cls: "export-button-container" });
+		const exportBtn = exportContainer.createEl("button", {
 			text: "Exportar",
 			cls: "mod-cta export-button"
 		});
-		exportBtn.style.marginTop = "1em";
 
 		exportBtn.onclick = () => {
 			new PostFilterOptionsModal(this.app, this.plugin, async () => {
@@ -321,15 +335,8 @@ export class LabelModal extends Modal {
 			}).open();
 		};
 
-		// Añadir justo debajo del contenedor .annotations-container
-		const annotationsContainer = this.contentEl.querySelector(".annotations-container");
-		if (annotationsContainer) {
-			annotationsContainer.insertAdjacentElement("afterend", exportBtn);
-			console.log("✅ Botón 'Exportar' insertado después del contenedor de anotaciones");
-		} else {
-			this.contentEl.appendChild(exportBtn);
-			console.warn("⚠️ No se encontró '.annotations-container'. Botón añadido al final del contentEl");
-		}
+		// Añadir el contenedor al final
+		this.contentEl.appendChild(exportContainer);
 
 
 
@@ -487,73 +494,89 @@ export class LabelModal extends Modal {
 
 	private parseAnnotations(rawAnnotations : { raw: string, context: string}[]): any[] {
 		const parsed: any[] = [];
-	
+
 		for (const { raw: annotation, context } of rawAnnotations) {
 			try {
 				const linkRegex = /\[\[([^\]]+?)\]\]/;
 				const match = annotation.match(linkRegex);
-	
+
 				if (!match) {
 					console.warn("❌ No se pudo extraer el link de la anotación:", annotation);
 					continue;
 				}
-	
-				const linkContent = match[1]; // Ej: Referencia sobre TFGs.pdf#page=1&selection=7,3,7,39&color=red|Referencia...
-				const [linkPart] = linkContent.split("|"); // quitar texto después de la barra
+
+				const linkContent = match[1];
+				const [linkPart] = linkContent.split("|");
 				const [pdfAndParams] = linkPart.split("#");
-	
 				const pdfname = pdfAndParams.trim();
-	
+
 				const pageMatch = linkContent.match(/page=(\d+)/);
-				const selectionMatch = linkContent.match(/selection=(\d+,\d+,\d+,\d+)/);
-				const rectMatch = linkContent.match(/rect=(\d+,\d+,\d+,\d+)/);
+				const selectionMatch = linkContent.match(/selection=([0-9,]+)/);
+				const rectMatch = linkContent.match(/rect=([0-9,]+)/);
 				const colorMatch = linkContent.match(/color=([a-zA-Z]+)/);
-				const color = colorMatch ? colorMatch[1] : "yellow"; // Valor por defecto
-				// const tags = (linkContent.match(/#[a-zA-Z0-9]+/g) || []).filter(
-				// 	(tag) => tag !== "#page"
-				// );
+				const color = colorMatch ? colorMatch[1] : "yellow";
 
 				if (!pdfname || !pageMatch) {
 					console.warn("❌ Anotación incompleta al parsear:", annotation);
 					continue;
 				}
-				
+
 				const page = parseInt(pageMatch[1], 10);
 				if (isNaN(page)) {
 					console.warn("❌ Página no válida:", pageMatch[1], "en anotación:", annotation);
 					continue;
 				}
-				
-				let coordsSelection: number[] = []; // Valor por defecto
-				let coordsRectangles: number[] = []; // Valor por defecto
 
-				if(selectionMatch) {
-					const selection = selectionMatch[1].split(",").map(Number);
-					if (selection.length !== 4 || selection.some(isNaN)) {
-						console.warn("❌ Coordenadas de selección inválidas:", selectionMatch[1], "en anotación:", annotation);
-						continue;
-					}
-					coordsSelection = selection;
+				// Validar color
+				if (!filterCOLOR.includes(color)) {
+					console.warn("❌ Color inválido:", color, "en anotación:", annotation);
+					continue;
 				}
 
-				if(rectMatch) {
-					const rectangles = rectMatch[1].split(",").map(Number);
-					if (rectangles.length !== 4 || rectangles.some(isNaN)) {
-						console.warn("❌ Coordenadas de rectángulo inválidas:", rectMatch[1], "en anotación:", annotation);
+				let coordsSelection: number[] = [];
+				let coordsRectangles: number[] = [];
+
+				if (selectionMatch) {
+					const selectionString = selectionMatch[1];
+					const parts = selectionString.split(",");
+
+					if (parts.length !== 4 || !parts.every(n => /^\d+$/.test(n))) {
+						console.warn("❌ Coordenadas de selección inválidas (esperado 4 enteros):", selectionString, "en:", annotation);
 						continue;
 					}
-					coordsRectangles = rectangles;
+
+					coordsSelection = parts.map(Number);
 				}
 
-				// Extraer tags del contexto (excepto #page)
+
+				if (rectMatch) {
+					const rectString = rectMatch[1];
+					const parts = rectString.split(",");
+
+					if (parts.length !== 4 || !parts.every(n => /^\d+$/.test(n))) {
+						console.warn("❌ Coordenadas de rectángulo inválidas (esperado 4 enteros):", rectString, "en:", annotation);
+						continue;
+					}
+
+					coordsRectangles = parts.map(Number);
+				}
+
+
+				// Validar que haya al menos un conjunto de coordenadas válido
+				if (
+					(coordsSelection.length !== 4 || coordsSelection.some(isNaN)) &&
+					(coordsRectangles.length !== 4 || coordsRectangles.some(isNaN))
+				) {
+					console.warn("❌ La anotación no tiene coordenadas válidas:", annotation);
+					continue;
+				}
+
 				const tags = (context.match(/#[a-zA-Z0-9-_]+/g) || []).filter(tag => tag !== "#page");
-
 				const userComment = this.extractUserComment(context, annotation);
-				
-	
+
 				parsed.push({
 					original: annotation,
-					context: context,
+					context,
 					link: linkContent,
 					pdfname,
 					page,
@@ -567,10 +590,11 @@ export class LabelModal extends Modal {
 				console.error("❌ Error al parsear anotación:", annotation, error);
 			}
 		}
-	
+
 		console.log("🟢 Anotaciones parseadas correctamente:", parsed);
 		return parsed;
 	}
+
 	
 
     /**
@@ -764,44 +788,25 @@ export class LabelModal extends Modal {
 	
 				const page = await pdfDoc.getPage(pageNumber);
 				const textContent = await page.getTextContent({ includeChars: true });
-				const maxIndex = textContent.items.length - 1;
 
 				for (const annotation of annotationsOnPage) {
 
 					try {
-						console.log("🔍 Procesando anotación:", annotation);
 	
 						const [x1, y1, x2, y2] = annotation.coordsSelection;
 						console.log("📍 Coordenadas de selección:", { x1, y1, x2, y2 });
 	
-						// Validación adicional: evitar rangos fuera de los items disponibles
-						if (x1 > maxIndex || x2 > maxIndex) {
-							console.warn(`⚠️ Coordenadas fuera de rango:`, annotation.context, { x1, x2, maxIndex });
-							continue; // Saltar esta anotación
-						}
-
-						// Verificar que realmente existen items en las posiciones x1 y x2
-						const item1 = textContent.items[x1];
-						const item2 = textContent.items[x2];
-						
-						// Validar que ambos items existen y tienen transformaciones de texto
-						if (!item1 || !item2 || !item1.transform || !item2.transform) {
-							console.warn(`⚠️ Items no válidos en indices x1: ${x1} o x2: ${x2}. Anotación omitida:`, annotation.context);
-							continue;
-						}
                         const normalizedItems = textContent.items.map((item: any) => this.normalizeTextContentItem(item));
+						
 						const rects = this.pdfplus.lib.highlight.geometry.computeMergedHighlightRects(
 							{ textContentItems: normalizedItems, textDivs: [], div: null },
 							x1, y1, x2, y2
 						);
-						
-						if (!rects || !rects.length) {
-							console.warn("⚠️ No se devolvieron rectángulos válidos para:", annotation.context);
-							continue;
-						}
+
 						console.log("✅ Rectángulos calculados:", rects);
 	
 						annotation.coordsSelection = rects.map((r: { rect: number [] }) => r.rect);
+
 						result.push(annotation);
 					} catch (e) {
 						console.error("❌ Error al calcular rectángulos para la anotación:", annotation, e);
@@ -826,7 +831,7 @@ export class LabelModal extends Modal {
 		
 		const geometry = this.pdfplus.lib.highlight.geometry;
 		const subtype = "Highlight"; // Highlight, Underline, StrikeOut, Squiggly, etc.
-		const contents = annotation.userComment || "";
+		const contents = pdflib.PDFHexString.fromText(annotation.userComment || ""); // Contenido del comentario de usuario
 
 		const author = pdflib.PDFHexString.fromText(this.plugin.settings.author);
 
@@ -855,7 +860,7 @@ export class LabelModal extends Modal {
 			Subtype: subtype,
 			Rect: geometry.mergeRectangles(coords),
 			QuadPoints: geometry.rectsToQuadPoints(coords),
-			Contents: pdflib.PDFHexString.fromText(contents),
+			Contents: contents,
 			M: timestamp,
 			T: author,
 			CA: subtype === 'Highlight' ? this.plugin.settings.opacity : 1.0,

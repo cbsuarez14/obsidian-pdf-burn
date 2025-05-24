@@ -44,8 +44,8 @@ export const DEFAULT_SETTINGS: Settings = {
     newPDFName: "testing",
     mapRectangles: false,
     writeToPDF: false,
-    opacity: 1.0,
-    author: ""
+    opacity: 0.5,
+    author: "carlos"
 }
 
 export interface Annotation {

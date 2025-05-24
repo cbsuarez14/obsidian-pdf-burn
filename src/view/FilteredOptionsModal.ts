@@ -1,4 +1,4 @@
-import { App, Modal, Setting } from "obsidian";
+import { App, Modal, Notice, Setting } from "obsidian";
 
 export class PostFilterOptionsModal extends Modal {
 	plugin: any;
@@ -82,6 +82,11 @@ export class PostFilterOptionsModal extends Modal {
 					.setButtonText("Aplicar estas opciones")
 					.setCta()
 					.onClick(() => {
+						const name = this.plugin.settings.newPDFName;
+						if(!this.isValidFilename(name)) {
+							new Notice("❌ Nombre de PDF inválido. Evita usar caracteres como \\ / : * ? \" < > |");
+							return;
+						}
 						this.close();
 						this.onContinue();
 					})
@@ -91,4 +96,11 @@ export class PostFilterOptionsModal extends Modal {
 	onClose() {
 		this.contentEl.empty();
 	}
+
+	isValidFilename(name: string): boolean {
+		// Windows-invalid characters: \ / : * ? " < > |
+		const invalidPattern = /[\\\/:*?"<>|]/;
+		return !invalidPattern.test(name.trim()) && name.trim().length > 0;
+	}
+
 }

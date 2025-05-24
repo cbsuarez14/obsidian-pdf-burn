@@ -5,4 +5,15 @@
   border: 1px solid var(--background-modifier-border);
   border-radius: 8px;
   margin-top: 1em;
-}   
+}
+
+.export-button-container {
+	display: flex;
+	justify-content: flex-end;
+	margin-top: 1em;
+}
+
+.export-button {
+	min-width: 100px;
+}
+
