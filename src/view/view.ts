@@ -206,12 +206,16 @@ export class LabelModal extends Modal {
 				}
 			
 				// Si se especifica un color, verificar que coincida con la anotación
-				if (color && !match[0].includes(`|${color}]`)) {
+				if (color && (!match[0] || !match[0].includes(`|${color}]`))) {
 					continue; // Saltar si el color no coincide
 				}
 				
+				if (typeof match.index !== "number" || typeof match[0] !== "string") {
+					continue;
+				}
 
 				const fullRaw = content.substring(match.index, match.index + match[0].length);
+
 				annotations.push({ raw: fullRaw, context });
 				
 
