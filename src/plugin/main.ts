@@ -19,9 +19,19 @@ export default class ExamplePlugin extends Plugin {
 				return;
 			}
 			console.log("PDF++ cargado correctamente");
-	
+			
+			// Icono en la barra lateral
 			this.addRibbonIcon("pencil", "Abrir configuración", () => {
 				new LabelModal(this.app, this, pdfplus).open();
+			});
+
+			// Comando para abrir el modal
+			this.addCommand({
+				id: "open-label-modal",
+				name: "Exortar anotaciones a PDF",
+				callback: () => {
+					new LabelModal(this.app, this, pdfplus).open();
+				}
 			});
 
 			this.addSettingTab(new ExampleSettingsTab(this.app, this));
@@ -36,7 +46,7 @@ export default class ExamplePlugin extends Plugin {
 	// Metodo para cargar los ajustes
 	async loadSettings() {
 		// Ignorar ajustes guardados → siempre usar los valores por defecto
-		this.settings = Object.assign({}, DEFAULT_SETTINGS);
+		this.settings = Object.assign({}, DEFAULT_SETTINGS, await this.loadData());
 	}
 
 

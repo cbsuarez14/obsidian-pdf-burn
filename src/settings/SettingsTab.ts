@@ -60,9 +60,20 @@ export class ExampleSettingsTab extends PluginSettingTab
             .setName("Autor")
             .setDesc("Introduce el nombre del autor")
             .addText(text => text
-                .setValue("")
+                .setValue(this.plugin.settings.author)
                 .onChange(async (value) => {
                     this.plugin.settings.author = value;
+                    await this.plugin.saveSettings();
+                })
+        );
+
+        new Setting(this.containerEl)
+            .setName("Ruta del nuevo PDF")
+            .setDesc("Ruta donde se guardará el nuevo PDF generado.\nIMPORTANTE: no utilizar '/' inicial.")
+            .addText(text => text
+                .setValue(this.plugin.settings.PDFnewPath)
+                .onChange(async (value) => {
+                    this.plugin.settings.PDFnewPath = value.trim();
                     await this.plugin.saveSettings();
                 })
         );

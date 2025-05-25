@@ -366,10 +366,19 @@ export class LabelModal extends Modal {
 			console.log(`JSON exportado en ${elapsedTime} ms`);
 		}
 
+		// if (writetopdf) {
+		// 	const newFilePath = `${newPDF}.pdf`;
+		// 	await this.copyPDF(this.selectedPDF, newFilePath);
+		// 	await this.addAnnotationsToPdf(newFilePath, parsedAnnotations);
+		// }
+
 		if (writetopdf) {
-			const newFilePath = `${newPDF}.pdf`;
+			const basePath = this.plugin.settings.PDFnewPath.trim();
+			const newFilePath = basePath ? `${basePath}/${newPDF}.pdf` : `${newPDF}.pdf`;
+
 			await this.copyPDF(this.selectedPDF, newFilePath);
 			await this.addAnnotationsToPdf(newFilePath, parsedAnnotations);
+			new Notice(`Anotaciones añadidas al PDF: ${newFilePath}`);
 		}
 	}
 
@@ -396,7 +405,14 @@ export class LabelModal extends Modal {
 				await this.app.vault.modifyBinary(existing, content);
 				new Notice(`Archivo existente sobrescrito: ${newFilePath}`);
 			} else {
-				// Crear el nuevo archivo
+				// Asegurar que la carpeta de destino existe
+				const folderPath = newFilePath.substring(0, newFilePath.lastIndexOf("/"));
+				if (!this.app.vault.getAbstractFileByPath(folderPath)) {
+					await this.app.vault.createFolder(folderPath);
+					console.log("📂 Carpeta creada:", folderPath);
+				}
+
+				// Guardar el PDF
 				await this.app.vault.createBinary(newFilePath, content);
 				new Notice(`Copia creada correctamente: ${newFilePath}`);
 			}

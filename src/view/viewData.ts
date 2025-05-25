@@ -34,6 +34,8 @@ export interface Settings {
     writeToPDF: boolean;
     opacity: number;
     author: string;
+    PDFnewPath: string; // Ruta del nuevo PDF generado
+    JSONnewPath: string; // Ruta del JSON generado
 }
 
 export const DEFAULT_SETTINGS: Settings = {
@@ -45,7 +47,9 @@ export const DEFAULT_SETTINGS: Settings = {
     mapRectangles: false,
     writeToPDF: false,
     opacity: 0.5,
-    author: "carlos"
+    author: "carlos",
+    PDFnewPath: "",
+    JSONnewPath: ""
 }
 
 export interface Annotation {
