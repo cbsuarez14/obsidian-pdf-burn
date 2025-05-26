@@ -82,7 +82,7 @@ export class ExampleSettingsTab extends PluginSettingTab
             .setName("Ruta del archivo JSON")
             .setDesc("Ruta donde se guardará el archivo JSON generado.\nIMPORTANTE: no utilizar '/' inicial.")
             .addText(text => text
-                .setValue(this.plugin.settings.PDFnewPath)
+                .setValue(this.plugin.settings.JSONnewPath)
                 .onChange(async (value) => {
                     this.plugin.settings.PDFnewPath = value.trim();
                     await this.plugin.saveSettings();
