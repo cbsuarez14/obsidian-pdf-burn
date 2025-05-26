@@ -3,7 +3,7 @@ import { LabelModal } from "../view/view"; // Importamos el modal personalizado
 import { ExampleSettingsTab } from "../settings/SettingsTab";
 import { Settings, DEFAULT_SETTINGS } from "../view/viewData";
 
-export default class ExamplePlugin extends Plugin {
+export default class PDFBurn extends Plugin {
 	
 	settings: Settings;
 
@@ -28,7 +28,7 @@ export default class ExamplePlugin extends Plugin {
 			// Comando para abrir el modal
 			this.addCommand({
 				id: "open-label-modal",
-				name: "Exortar anotaciones a PDF",
+				name: "Exportar anotaciones a PDF",
 				callback: () => {
 					new LabelModal(this.app, this, pdfplus).open();
 				}

@@ -357,10 +357,10 @@ export class LabelModal extends Modal {
 		// Mensaje en la interfaz indicando que se está generando el JSON
 		const statusMessage = this.contentEl.createEl("p", { text: "Generando JSON...", cls: "json-status" });
 
-		if (mapRectangles) {
-			parsedAnnotations.forEach(ann => ann.source = this.selectedPDF);
-			await this.computeAnnotationRects(parsedAnnotations);
-		}
+		// if (mapRectangles) {
+		// 	parsedAnnotations.forEach(ann => ann.source = this.selectedPDF);
+		// 	await this.computeAnnotationRects(parsedAnnotations);
+		// }
 
 		if (exportToJSON) {
 			await this.exportParsedAnnotationsToJSON(this.selectedPDF, parsedAnnotations);
@@ -379,6 +379,9 @@ export class LabelModal extends Modal {
 		if (writetopdf) {
 			const basePath = this.plugin.settings.PDFnewPath.trim();
 			const newFilePath = basePath ? `${basePath}/${newPDF}.pdf` : `${newPDF}.pdf`;
+
+			parsedAnnotations.forEach(ann => ann.source = this.selectedPDF);
+			await this.computeAnnotationRects(parsedAnnotations);
 
 			await this.copyPDF(this.selectedPDF, newFilePath);
 			await this.addAnnotationsToPdf(newFilePath, parsedAnnotations);

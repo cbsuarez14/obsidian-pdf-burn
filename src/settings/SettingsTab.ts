@@ -38,7 +38,7 @@ export class ExampleSettingsTab extends PluginSettingTab
         containerEl.empty();
 
         // Titulo del panel de ajustes
-        containerEl.createEl("h1", { text: "Welcome to ExamplePlugin!"})
+        containerEl.createEl("h1", { text: "Welcome to PDFburn!"})
         containerEl.createEl("p", { text: "Created by Carlos Bravo Suárez."})
 
         new Setting(this.containerEl)
@@ -70,6 +70,17 @@ export class ExampleSettingsTab extends PluginSettingTab
         new Setting(this.containerEl)
             .setName("Ruta del nuevo PDF")
             .setDesc("Ruta donde se guardará el nuevo PDF generado.\nIMPORTANTE: no utilizar '/' inicial.")
+            .addText(text => text
+                .setValue(this.plugin.settings.PDFnewPath)
+                .onChange(async (value) => {
+                    this.plugin.settings.PDFnewPath = value.trim();
+                    await this.plugin.saveSettings();
+                })
+        );
+
+        new Setting(this.containerEl)
+            .setName("Ruta del archivo JSON")
+            .setDesc("Ruta donde se guardará el archivo JSON generado.\nIMPORTANTE: no utilizar '/' inicial.")
             .addText(text => text
                 .setValue(this.plugin.settings.PDFnewPath)
                 .onChange(async (value) => {

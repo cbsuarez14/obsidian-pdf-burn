@@ -33,17 +33,17 @@ export class PostFilterOptionsModal extends Modal {
 			);
 
 		// Opción para mapear rectángulo
-		new Setting(contentEl)
-			.setName("Mapear rectángulo de selección")
-			.setDesc("Mapea el rectángulo de selección en el PDF.")
-			.addToggle((toggle) =>
-				toggle
-					.setValue(false)
-					.onChange((value) => {
-						this.plugin.settings.mapRectangles = value;
-						this.plugin.saveSettings();
-					})
-			);
+		// new Setting(contentEl)
+		// 	.setName("Mapear rectángulo de selección")
+		// 	.setDesc("Mapea el rectángulo de selección en el PDF.")
+		// 	.addToggle((toggle) =>
+		// 		toggle
+		// 			.setValue(false)
+		// 			.onChange((value) => {
+		// 				this.plugin.settings.mapRectangles = value;
+		// 				this.plugin.saveSettings();
+		// 			})
+		// 	);
 
 		// Opción para escribir en el PDF (controla habilitación del nombre)
 		new Setting(contentEl)
@@ -65,7 +65,7 @@ export class PostFilterOptionsModal extends Modal {
 			.setDesc("Nombre del archivo PDF que se generará")
 			.addText((text) => {
 				text
-					.setPlaceholder("nuevo-archivo.pdf")
+					.setPlaceholder("testing.pdf")
 					.setValue("")
 					.setDisabled(true) // ← empieza desactivado
 					.onChange((value) => {
@@ -74,6 +74,22 @@ export class PostFilterOptionsModal extends Modal {
 					});
 				pdfNameInput = text.inputEl;
 			});
+
+		new Setting(contentEl)
+			.setName("Nombre del archivo JSON")
+			.setDesc("Nombre del archivo JSON que se generará")
+			.addText((text) => {
+				text
+					.setPlaceholder("PDF_annotations.json")
+					.setValue("")
+					.setDisabled(true) // ← empieza desactivado
+					.onChange((value) => {
+						this.plugin.settings.JSONnewPath = value;
+						this.plugin.saveSettings();
+					});
+				
+			});
+
 
 		// Botón continuar
 		new Setting(contentEl)
