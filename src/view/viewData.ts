@@ -30,6 +30,7 @@ export interface Settings {
     displayFormat: string;
     exportToJSON: boolean;
     newPDFName: string;
+    newJSONname: string;
     mapRectangles: boolean;
     writeToPDF: boolean;
     opacity: number;
@@ -44,6 +45,7 @@ export const DEFAULT_SETTINGS: Settings = {
     displayFormat: "",
     exportToJSON: false,
     newPDFName: "testing",
+    newJSONname: "PDF_annotations.json",
     mapRectangles: false,
     writeToPDF: false,
     opacity: 0.5,

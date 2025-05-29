@@ -7,6 +7,14 @@
   margin-top: 1em;
 }
 
+.file-list-scrollable {
+  max-height: 500px;
+  overflow-y: auto;
+  padding-right: 8px;
+  margin-top: 1em;
+}
+
+
 .export-button-container {
 	display: flex;
 	justify-content: flex-end;
@@ -16,4 +24,17 @@
 .export-button {
 	min-width: 100px;
 }
+
+/* Quita línea blanca y margen superior del contenedor */
+.markdown-accept-button-setting {
+  border-top: none !important;
+  margin-top: 0 !important;
+}
+
+/* Alinea el botón a la derecha y ajusta márgenes */
+.markdown-accept-button-setting .setting-item-control button {
+  margin: 1em 1em 1em auto !important; /* top, right, bottom, left */
+  display: block;
+}
+
 

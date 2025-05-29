@@ -21,7 +21,7 @@ import { Settings } from "../view/viewData";
 //     opacity: 1.0
 // };
 
-export class ExampleSettingsTab extends PluginSettingTab
+export class PDFburnSettingsTab extends PluginSettingTab
 {
     plugin: any;
 
@@ -84,7 +84,7 @@ export class ExampleSettingsTab extends PluginSettingTab
             .addText(text => text
                 .setValue(this.plugin.settings.JSONnewPath)
                 .onChange(async (value) => {
-                    this.plugin.settings.PDFnewPath = value.trim();
+                    this.plugin.settings.JSONnewPath = value.trim();
                     await this.plugin.saveSettings();
                 })
         );

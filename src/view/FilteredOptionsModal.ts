@@ -28,7 +28,7 @@ export class PostFilterOptionsModal extends Modal {
 					.setValue(false)
 					.onChange((value) => {
 						this.plugin.settings.exportToJSON = value;
-						this.plugin.saveSettings();
+						//this.plugin.saveSettings();
 					})
 			);
 
@@ -54,7 +54,7 @@ export class PostFilterOptionsModal extends Modal {
 					.setValue(false)
 					.onChange((value) => {
 						this.plugin.settings.writeToPDF = value;
-						this.plugin.saveSettings();
+						//this.plugin.saveSettings();
 						// Activar o desactivar campo de nombre
 						pdfNameInput.disabled = !value;
 					})
@@ -70,7 +70,7 @@ export class PostFilterOptionsModal extends Modal {
 					.setDisabled(true) // ← empieza desactivado
 					.onChange((value) => {
 						this.plugin.settings.newPDFName = value;
-						this.plugin.saveSettings();
+						//this.plugin.saveSettings();
 					});
 				pdfNameInput = text.inputEl;
 			});
@@ -82,10 +82,9 @@ export class PostFilterOptionsModal extends Modal {
 				text
 					.setPlaceholder("PDF_annotations.json")
 					.setValue("")
-					.setDisabled(true) // ← empieza desactivado
 					.onChange((value) => {
-						this.plugin.settings.JSONnewPath = value;
-						this.plugin.saveSettings();
+						this.plugin.settings.newJSONname = value;
+						//this.plugin.saveSettings();
 					});
 				
 			});

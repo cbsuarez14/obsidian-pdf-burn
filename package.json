@@ -1,7 +1,7 @@
 {
-	"name": "obsidian-sample-plugin",
-	"version": "1.0.0",
-	"description": "This is a sample plugin for Obsidian (https://obsidian.md)",
+	"name": "pdf-burn",
+	"version": "1.0.2",
+	"description": "PDFburn es un plugin de Obsidian que permite exportar anotaciones a PDF.",
 	"main": "main.js",
 	"scripts": {
 		"dev": "node esbuild.config.mjs",
@@ -12,12 +12,15 @@
 	"author": "",
 	"license": "MIT",
 	"devDependencies": {
+		"@types/jest": "^29.5.14",
 		"@types/node": "^16.11.6",
 		"@typescript-eslint/eslint-plugin": "5.29.0",
 		"@typescript-eslint/parser": "5.29.0",
 		"builtin-modules": "3.3.0",
-		"esbuild": "0.17.3",
+		"esbuild": "^0.25.5",
+		"jest": "^29.7.0",
 		"obsidian": "latest",
+		"ts-jest": "^29.3.4",
 		"tslib": "2.4.0",
 		"typescript": "4.7.4"
 	}

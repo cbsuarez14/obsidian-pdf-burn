@@ -13,7 +13,7 @@ export class LabelModal extends Modal {
 	pdfplus: any;
 	selectedPDF: string;
 	tagValue: string;
-	markdownFile: string;
+	markdownFiles: string[];
 
 	parsedAnnotations: any[] = [];	
 
@@ -60,10 +60,11 @@ export class LabelModal extends Modal {
 					.setCta()
 					.onClick(() => {
 						// Abrir el selector de archivos
-						new MarkdownSelectorModal(this.app, this.plugin, (markdownfile) => {
-							this.markdownFile = markdownfile.trim();
-							new Notice(`Archivo Markdown seleccionado desde view.ts: ${this.markdownFile}`);
+						new MarkdownSelectorModal(this.app, this.plugin, (markdownfiles: string[]) => {
+							this.markdownFiles = markdownfiles;
+							new Notice(`Archivos Markdown seleccionados desde view.ts: ${this.markdownFiles.join(", ")}`);
 						}).open();
+
 					})
 			);
 
@@ -148,7 +149,7 @@ export class LabelModal extends Modal {
 	/**
 	 * Encuentra todas las anotaciones PDF++ en un archivo PDF, aplicando filtros opcionales.
 	 */
-	async findPDFAnnotations(pdfPath: string, color?: string, tag?: string, markdownFile?: string, displayFormat?: string, linkFormat?: string): Promise<{ raw: string; context: string }[]> {
+	async findPDFAnnotations(pdfPath: string, color?: string, tag?: string, markdownFiles?: string[], displayFormat?: string, linkFormat?: string): Promise<{ raw: string; context: string }[]> {
 
 		// Obtener todos los archivos Markdown de la Vault
 		const files = this.app.vault.getMarkdownFiles();
@@ -163,7 +164,10 @@ export class LabelModal extends Modal {
 
 		for (const file of files) {
 			// Si se especifica un archivo Markdown, saltar si no coincide con el archivo actual
-			if (markdownFile && file.basename !== markdownFile) continue;
+			if (markdownFiles && markdownFiles.length > 0 && !markdownFiles.includes(file.basename)) {
+				continue;
+			}
+
 
 			// Leer el contenido del archivo
 			const content = await this.app.vault.read(file);
@@ -231,29 +235,41 @@ export class LabelModal extends Modal {
 	async exportParsedAnnotationsToJSON(pdfPath: string, parsedAnnotations: any[]) {
 		const fs = require("fs");
 		const path = require("path");
-	
-		const folderPath = pdfPath.substring(0, pdfPath.lastIndexOf("/"));
+
+		const vaultBasePath = (this.app.vault.adapter as any).basePath;
+		const exportFolder = this.plugin.settings.JSONnewPath?.trim() || "";
+		const folderPath = path.join(vaultBasePath, exportFolder);
+
 		const pdfName = pdfPath.split("/").pop()?.replace(".pdf", "");
-	
+
 		if (!pdfName) {
 			new Notice("Error al obtener el nombre del PDF.");
 			return;
 		}
-	
-		// Definir la ruta del archivo JSON
-		const jsonFilePath = path.join((this.app.vault.adapter as any).basePath, folderPath, `${pdfName}_annotations.json`);
-	
-		// Crear el JSON directamente desde los parsedAnnotations
+
+		// Asegúrate de que el directorio existe
+		if (!fs.existsSync(folderPath)) {
+			fs.mkdirSync(folderPath, { recursive: true });
+		}
+
+		// Usa el nombre proporcionado por el usuario o uno por defecto
+		const jsonBaseName = this.plugin.settings.newJSONname?.length > 0
+			? this.plugin.settings.newJSONname
+			: `${pdfName}_annotations`;
+
+		const jsonFilePath = path.join(folderPath, `${jsonBaseName}.json`);
 		const jsonData = JSON.stringify(parsedAnnotations, null, 4);
-	
+
 		try {
 			fs.writeFileSync(jsonFilePath, jsonData);
-			new Notice(`JSON exportado con éxito: ${jsonFilePath}`);
+			new Notice(`JSON exportado con éxito en: ${jsonFilePath}`);
 		} catch (error) {
 			console.error("Error al exportar a JSON:", error);
 			new Notice("Error al exportar a JSON.");
 		}
 	}
+
+
 	
 	
 	
@@ -315,7 +331,7 @@ export class LabelModal extends Modal {
 
 	
 
-		const annotations = await this.findPDFAnnotations(this.selectedPDF, color, this.tagValue, this.markdownFile, displayFormat, linkFormat);
+		const annotations = await this.findPDFAnnotations(this.selectedPDF, color, this.tagValue, this.markdownFiles, displayFormat, linkFormat);
 		this.parsedAnnotations = this.parseAnnotations(annotations);
 		this.showAnnotations(this.contentEl, this.parsedAnnotations.map(a => a.original));
 
@@ -362,6 +378,9 @@ export class LabelModal extends Modal {
 		// 	await this.computeAnnotationRects(parsedAnnotations);
 		// }
 
+		parsedAnnotations.forEach(ann => ann.source = this.selectedPDF);
+		await this.computeAnnotationRects(parsedAnnotations);
+
 		if (exportToJSON) {
 			await this.exportParsedAnnotationsToJSON(this.selectedPDF, parsedAnnotations);
 			const endTime = performance.now();
@@ -379,9 +398,6 @@ export class LabelModal extends Modal {
 		if (writetopdf) {
 			const basePath = this.plugin.settings.PDFnewPath.trim();
 			const newFilePath = basePath ? `${basePath}/${newPDF}.pdf` : `${newPDF}.pdf`;
-
-			parsedAnnotations.forEach(ann => ann.source = this.selectedPDF);
-			await this.computeAnnotationRects(parsedAnnotations);
 
 			await this.copyPDF(this.selectedPDF, newFilePath);
 			await this.addAnnotationsToPdf(newFilePath, parsedAnnotations);

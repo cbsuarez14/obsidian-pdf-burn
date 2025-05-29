@@ -1,6 +1,6 @@
 import { Plugin } from "obsidian";
 import { LabelModal } from "../view/view"; // Importamos el modal personalizado
-import { ExampleSettingsTab } from "../settings/SettingsTab";
+import { PDFburnSettingsTab } from "../settings/SettingsTab";
 import { Settings, DEFAULT_SETTINGS } from "../view/viewData";
 
 export default class PDFBurn extends Plugin {
@@ -21,9 +21,11 @@ export default class PDFBurn extends Plugin {
 			console.log("PDF++ cargado correctamente");
 			
 			// Icono en la barra lateral
-			this.addRibbonIcon("pencil", "Abrir configuración", () => {
+			this.addRibbonIcon("notebook-pen", "Abrir configuración", () => {
 				new LabelModal(this.app, this, pdfplus).open();
 			});
+
+			
 
 			// Comando para abrir el modal
 			this.addCommand({
@@ -34,7 +36,7 @@ export default class PDFBurn extends Plugin {
 				}
 			});
 
-			this.addSettingTab(new ExampleSettingsTab(this.app, this));
+			this.addSettingTab(new PDFburnSettingsTab(this.app, this));
 		});
 	}
 	

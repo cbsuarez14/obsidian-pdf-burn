@@ -13,18 +13,21 @@ export class PDFSelectorModal extends Modal {
     onOpen() {
         
         const { contentEl } = this;
-
         contentEl.empty();
+
         contentEl.createEl("h2", { text: "Seleccione un archivo PDF de la Vault" });
 
         // Obtener todos los archivos de la Vault
         const files = this.app.vault.getFiles();
 
+        const PDFFilesContainer = contentEl.createDiv("modal-scrollable-content");
+
+
         // Filtrar solo los PDFs y mostrarlos en una lista
         files
             .filter((file) => file.extension === "pdf")
             .forEach((file) => {
-                new Setting(contentEl)
+                new Setting(PDFFilesContainer)
                     .setName(file.name)
                     .setDesc(file.path)
                     .addButton((btn) =>
