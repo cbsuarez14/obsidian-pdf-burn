@@ -430,7 +430,7 @@ export class LabelModal extends Modal {
 			} else {
 				// Asegurar que la carpeta de destino existe
 				const folderPath = newFilePath.substring(0, newFilePath.lastIndexOf("/"));
-				if (!this.app.vault.getAbstractFileByPath(folderPath)) {
+				if (folderPath && !this.app.vault.getAbstractFileByPath(folderPath)) {
 					await this.app.vault.createFolder(folderPath);
 					console.log("📂 Carpeta creada:", folderPath);
 				}
@@ -897,7 +897,7 @@ export class LabelModal extends Modal {
 		
 		const ref = this.pdfplus.lib.highlight.writeFile.pdflib.addAnnotation(page, {
 			Subtype: subtype,
-			Rect: geometry.mergeRectangles(coords),
+			Rect: geometry.mergeRectangles(...coords),
 			QuadPoints: geometry.rectsToQuadPoints(coords),
 			Contents: contents,
 			M: timestamp,
